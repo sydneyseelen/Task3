@@ -21,11 +21,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresPermission;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
-import java.util.Date;
+import java.util.ArrayList;
 
 public class GPSService extends Service implements LocationListener {
     private final String TAG = GPSService.class.getCanonicalName();
@@ -33,22 +32,32 @@ public class GPSService extends Service implements LocationListener {
     private LocationManager locationManager;
     long minTime = 1000;
     int minDistance = 10;
-    double longitude, latitude;
+    double longitude, latitude, distance;
+    ArrayList<Double> speedList;
+    long timestamp;
 
     private GPSServiceImpl impl;
 
     @Override
     public void onLocationChanged(@NonNull Location location) {
+        double oldLong = longitude;
+        double oldLat = latitude;
         longitude = location.getLongitude();
         latitude = location.getLatitude();
+        if(speedList.size() < 2) {
+            distance = 0.0;
+        } else {
+            distance = (double)Math.round(Math.sqrt((longitude - oldLong) * (longitude - oldLong) + (latitude - oldLat) * (latitude - oldLat)) * 111111 * 1000d) / 1000d;
+        }
 
-        Log.i("onLocationChanged", "longitude: " + Double.toString(longitude));
-        Log.i("onLocationChanged", "latitude: " + Double.toString(latitude));
+        long oldTimestamp = timestamp;
+        timestamp = System.currentTimeMillis() / 1000;
+        speedList.add(distance / (timestamp - oldTimestamp));
+
+        Log.i("onLocationChanged", "longitude: " + longitude);
+        Log.i("onLocationChanged", "latitude: " + latitude);
 
         exportLocationToFile(longitude, latitude);
-
-        //tvLong.setText(Double.toString(longitude));
-        //tvLat.setText(Double.toString(latitude));
     }
 
     private class GPSServiceImpl extends IGPSService.Stub {
@@ -58,20 +67,24 @@ public class GPSService extends Service implements LocationListener {
 
         }
         @Override
-        public double getLatitude(){
-            return 1.0;
+        public double getLatitude() {
+            return latitude;
         }
         @Override
-        public double getLongitude(){
-            return 1.0;
+        public double getLongitude() {
+            return longitude;
         }
         @Override
-        public double getDistance(){
-            return 1.0;
+        public double getDistance() {
+            return distance;
         }
         @Override
-        public double getAverageSpeed(){
-            return 1.0;
+        public double getAverageSpeed() {
+            if(speedList.size() < 2) {
+                return 0.0;
+            } else {
+                return calculateAverage(speedList);
+            }
         }
     }
 
@@ -79,7 +92,7 @@ public class GPSService extends Service implements LocationListener {
     @Override
     public IBinder onBind(Intent intent) {
         Log.i("onBind","binding service");
-        return (IBinder) impl;
+        return impl;
     }
 
     @RequiresPermission(ACCESS_FINE_LOCATION)
@@ -91,6 +104,10 @@ public class GPSService extends Service implements LocationListener {
 
         locationManager = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, minTime, minDistance, this);
+
+        distance = 0.0;
+        speedList = new ArrayList<>();
+        timestamp = System.currentTimeMillis() / 1000;
     }
 
     @Override
@@ -148,5 +165,12 @@ public class GPSService extends Service implements LocationListener {
         } catch (IOException e) {
             Log.i(TAG, "Failed to export history:\n" + e);
         }
+    }
+
+    private double calculateAverage(ArrayList<Double> marks) {
+        return marks.stream()
+                .mapToDouble(d -> d)
+                .average()
+                .orElse(0.0);
     }
 }

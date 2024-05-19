@@ -1,6 +1,7 @@
 package com.example.gpsservice;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -10,6 +11,7 @@ import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.RemoteException;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
@@ -30,9 +32,12 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     private IGPSService gpsServiceProxy = null;
 
     private Button startServiceButton;
-    private TextView tvLong, tvLat;
+    private Button stopServiceButton;
+    private Button updateButton;
+    private TextView tvLong, tvLat, tvDist, tvSpeed;
     int MY_PERMISSIONS_REQUEST_FINE_LOCATION = 1;
 
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,8 +50,12 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
         });
 
         startServiceButton = findViewById(R.id.StartServiceButton);
+        stopServiceButton = findViewById(R.id.StopServiceButton);
+        updateButton = findViewById(R.id.UpdateButton);
         tvLat = findViewById(R.id.latitude);
         tvLong = findViewById(R.id.longitude);
+        tvDist = findViewById(R.id.distance);
+        tvSpeed = findViewById(R.id.averageSpeed);
 
         Intent i = new Intent (this, GPSService.class);
 
@@ -55,12 +64,44 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
             @Override
             public void onClick(View view) {
                 startService(i);
+                bindService(i, MainActivity.this, BIND_AUTO_CREATE);
+            }
+        });
 
-                if (gpsServiceProxy!=null) {
-                    Log.i("onClick", "starting service");
-                    startService(i);
+        stopServiceButton.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                unbindService(MainActivity.this);
+                stopService(i);
+            }
+        });
+
+        updateButton.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                if (gpsServiceProxy != null) {
+                    try {
+                        double longitude = gpsServiceProxy.getLongitude();
+                        double latitude = gpsServiceProxy.getLatitude();
+                        double distance = gpsServiceProxy.getDistance();
+                        double avgSpeed = gpsServiceProxy.getAverageSpeed();
+
+                        String longS = "Longitude: " + longitude;
+                        String latS = "Latitude: " + latitude;
+                        String distS = "Distance: " + distance + " m";
+                        String speedS = "Average Speed: " + avgSpeed + " m/s";
+
+                        tvLong.setText(longS);
+                        tvLat.setText(latS);
+                        tvDist.setText(distS);
+                        tvSpeed.setText(speedS);
+                    } catch (RemoteException e) {
+                        Log.e(TAG, "Could not receive data from service");
+                    }
                 } else {
-                    Log.i("onClick", "no proxy ");
+                    Log.i(TAG, "No proxy");
                 }
             }
         });
