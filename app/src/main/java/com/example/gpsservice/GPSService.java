@@ -21,6 +21,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresPermission;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -125,8 +128,40 @@ public class GPSService extends Service implements LocationListener {
     }
 
     private void exportLocationToFile(double longitude, double latitude) {
+        File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+        Log.i(TAG, "path: " + path);
+        String filename = "location_history.txt";
+        String entry1 = "<trkpt lat=\"" + latitude + "\" lon=\"" + longitude + "\">";
+        String entry2 = "</trkpt>";
+
+        File f = new File(path, "/" + filename);
+        //try {
+        //    f.createNewFile();
+        //    Log.i(TAG, "Creating new file");
+        //} catch (IOException e) {
+        //    Log.i(TAG, "Writing to existing file");
+        //}
+
         try {
-            String filename = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) + "/location_history.txt";
+            FileWriter fw = new FileWriter(f, true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw);
+
+            out.println(entry1);
+            out.println(entry2);
+
+            fw.close();
+            Log.i(TAG, "Wrote location to file");
+        } catch (IOException e) {
+            Log.e(TAG, "Could not write to file");
+            e.printStackTrace();
+        }
+    }
+
+    private void exportLocationToFileOld(double longitude, double latitude) {
+        try {
+            //String filename = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) + "/location_history.txt";
+            String filename = "location_history.txt";
             String entry = "longitude: " + longitude + ", latitude: " + latitude;
 
             // construct file metadata
@@ -151,7 +186,7 @@ public class GPSService extends Service implements LocationListener {
                 return;
             }
 
-            Log.i(TAG, "Writing history to media store");
+            Log.i(TAG, "Writing history to media store at " + filename);
 
             PrintWriter out = new PrintWriter(outputStream);
             out.println(entry);
