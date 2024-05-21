@@ -36,6 +36,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     private Button updateButton;
     private TextView tvLong, tvLat, tvDist, tvSpeed;
     int MY_PERMISSIONS_REQUEST_FINE_LOCATION = 1;
+    int MY_PERMISSIONS_REQUEST_BACKGROUND_LOCATION = 1;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -57,7 +58,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
         tvDist = findViewById(R.id.distance);
         tvSpeed = findViewById(R.id.averageSpeed);
 
-        Intent i = new Intent (this, GPSService.class);
+        Intent i = new Intent(this, GPSService.class);
 
         startServiceButton.setOnClickListener(new View.OnClickListener() {
 
@@ -73,7 +74,8 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
             @Override
             public void onClick(View v) {
                 unbindService(MainActivity.this);
-                stopService(i);
+                gpsServiceProxy = null;
+                //stopService(i);
             }
         });
 
@@ -109,9 +111,10 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
     }
 
     @Override
-    protected void onStart(){
+    protected void onStart() {
         super.onStart();
 
+        Log.i(TAG, "Starting app");
         if (!isGPSEnabled(this)) {
             enableLocationSettings();
         }
@@ -120,6 +123,20 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
                 PackageManager.PERMISSION_GRANTED){
             requestLocationPermission();
         }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION)!=
+                PackageManager.PERMISSION_GRANTED){
+            requestLocationPermission();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+
+        Log.i(TAG, "Stopping app");
+        //unbindService(MainActivity.this);
+        //gpsServiceProxy = null;
     }
 
     @Override
@@ -134,7 +151,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
         gpsServiceProxy = null;
     }
 
-    public boolean isGPSEnabled (Context mContext){
+    public boolean isGPSEnabled (Context mContext) {
         LocationManager locationManager = (LocationManager)
                 mContext.getSystemService(Context.LOCATION_SERVICE);
         return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
@@ -142,6 +159,7 @@ public class MainActivity extends AppCompatActivity implements ServiceConnection
 
     private void requestLocationPermission() {
         ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, MY_PERMISSIONS_REQUEST_FINE_LOCATION);
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION}, MY_PERMISSIONS_REQUEST_BACKGROUND_LOCATION);
     }
 
     private void enableLocationSettings() {

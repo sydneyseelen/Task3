@@ -55,7 +55,10 @@ public class GPSService extends Service implements LocationListener {
 
         long oldTimestamp = timestamp;
         timestamp = System.currentTimeMillis() / 1000;
-        speedList.add(distance / (timestamp - oldTimestamp));
+        double speed = distance / (timestamp - oldTimestamp);
+        if (speed < Double.MAX_VALUE) {
+            speedList.add(speed);
+        }
 
         Log.i("onLocationChanged", "longitude: " + longitude);
         Log.i("onLocationChanged", "latitude: " + latitude);
@@ -83,7 +86,7 @@ public class GPSService extends Service implements LocationListener {
         }
         @Override
         public double getAverageSpeed() {
-            if(speedList.size() < 2) {
+            if(speedList.isEmpty()) {
                 return 0.0;
             } else {
                 return calculateAverage(speedList);
@@ -123,8 +126,9 @@ public class GPSService extends Service implements LocationListener {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i("onStartCommand","starting service ");
-        return super.onStartCommand(intent, flags, startId);
+        Log.i("onStartCommand","starting service");
+        super.onStartCommand(intent, flags, startId);
+        return START_STICKY;
     }
 
     private void exportLocationToFile(double longitude, double latitude) {
@@ -153,14 +157,12 @@ public class GPSService extends Service implements LocationListener {
             fw.close();
             Log.i(TAG, "Wrote location to file");
         } catch (IOException e) {
-            Log.e(TAG, "Could not write to file");
-            e.printStackTrace();
+            Log.e(TAG, "Could not write to file" + e);
         }
     }
 
     private void exportLocationToFileOld(double longitude, double latitude) {
         try {
-            //String filename = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) + "/location_history.txt";
             String filename = "location_history.txt";
             String entry = "longitude: " + longitude + ", latitude: " + latitude;
 
@@ -175,9 +177,11 @@ public class GPSService extends Service implements LocationListener {
             Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
 
             if (uri == null) {
-                Log.i(TAG, "Failed to obtain an uri to write to");
+                Log.i(TAG, "Failed to obtain a uri to write to");
                 return;
             }
+
+            Log.i(TAG, "uri: " + uri);
 
             OutputStream outputStream = resolver.openOutputStream(uri, "wa");
 
@@ -192,13 +196,9 @@ public class GPSService extends Service implements LocationListener {
             out.println(entry);
             out.close();
 
-            //FileOutputStream outputStream = new FileOutputStream(filename, true);
-            //byte[] strToBytes = entry.getBytes();
-            //outputStream.write(strToBytes);
-
             Log.i(TAG, "History is written to media store");
         } catch (IOException e) {
-            Log.i(TAG, "Failed to export history:\n" + e);
+            Log.e(TAG, "Failed to export history:\n" + e);
         }
     }
 
